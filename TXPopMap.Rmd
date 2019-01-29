@@ -1,0 +1,72 @@
+---
+title: "Texas Population: The Top 10 Counties"
+author: "M Pearson"
+date: "January 23, 2019"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+``` {r stuff, echo=FALSE, message=FALSE, warning = FALSE}
+# Load LIbraries
+library(stringr)
+library(dplyr)
+library(leaflet)
+
+# Population Data from US Census: TX County 2010 Census and 2017 est.
+# https://factfinder.census.gov/faces/tableservices/jsf/pages/productview.xhtml?pid=PEP_2017_PEPANNRES&prodType=table
+popFile <- 'PEP_2017_PEPANNRES_with_ann.csv'
+
+# Texas County centroid data from data.texas.gov
+# https://data.texas.gov/dataset/Texas-Counties-Centroid-Map/ups3-9e8m/data
+txCountiesFile <- "Texas_Counties_Centroid_Map.csv"
+
+#wikipedia
+tpFile <- "Texas_Population_wiki.csv"
+
+# Read files into tables
+popTX <- read.csv(popFile, stringsAsFactors = FALSE)
+txCounties <- read.csv(txCountiesFile, stringsAsFactors = FALSE)
+
+# Add County name to population table that matches centroid pattern. Correct centroid data for space in De Witt county so they will match
+countyNames <- popTX$GEO.display.label
+stringPattern = " County, Texas"
+countyNames <- countyNames %>% str_replace(stringPattern, "")
+popTX <- cbind(popTX, countyNames, stringsAsFactors = FALSE)
+txCounties$CNTY_NM[txCounties$CNTY_NM == "De Witt"] <- "DeWitt"
+
+# Join datasets on the County Name, renaming txCOunties column to match
+txCounties <- txCounties %>% rename(countyNames = CNTY_NM)
+mTX <-  merge(popTX, txCounties, by="countyNames")
+# correct misnaming of columns
+mTX <- mTX %>% rename(lng = X..Lat., lat = Y..Long., pop2010 = rescen42010, pop2017 = respop72017 ) 
+mTX$pop2010 <- as.numeric(mTX$pop2010)
+mTX$pop2017 <- as.numeric(mTX$pop2017)
+mTX$popChange <- mTX$pop2017/mTX$pop2010
+mTX$popup <-  paste('<b>' , mTX$countyNames , ' County</b><br />2017: ' , as.character(prettyNum(mTX$pop2017,big.mark = ',')),'<br />2010: ' , as.character(prettyNum(mTX$pop2010,big.mark = ',')), '<br /> Pop. Change: ', as.character(as.integer(mTX$popChange*100)),'%', sep='')
+
+m17Top <- mTX[order(-mTX$pop2017),][1:15,]
+mpcTop <- mTX[order(-mTX$popChange),][1:15,]
+
+#Leaflet Map
+my_map <-  mTX %>% leaflet() %>% addTiles %>% addCircles(data=m17Top, weight = 2, radius = sqrt(m17Top$pop2017)*30, opacity = .3, popup = m17Top$popup)  %>% addCircles(data = mpcTop,weight = 2, radius = sqrt(mpcTop$pop2017)*30, opacity = .3,color="red", fillColor = "red",  popup = mpcTop$popup)
+my_map
+```
+
+### Most populous (blue) and most rapidly growing (red) TX counties
+
+#### Data Sources:
+1. Population Data - US Census 2010 (actual) and 2017 (estimate)
+https://factfinder.census.gov/faces/tableservices/jsf/pages/productview.xhtml?pid=PEP_2017_PEPANNRES&prodType=table
+
+2. County Locations - online Texas COunties Centroid Map from data.texas.gov
+https://data.texas.gov/dataset/Texas-Counties-Centroid-Map/ups3-9e8m/data
+
+
+
+
+``` {r leaflet plot}
+```
